@@ -1,0 +1,114 @@
+<html lang="en">
+
+<head>
+    <title>Texture Image</title>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <div id="container"></div>
+</body>
+
+<script src="libs/three.js"></script>
+<script src="libs/TrackballControls.js"></script>
+<script src="libs/dat.gui.js"></script>
+
+<script type="x-shader/x-vertex" id="vertexShader">
+    precision mediump float;
+    
+	varying vec2 vUv;
+	
+	void main(void) {
+    	vUv = uv;
+		gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+    </script>
+
+<script type="x-shader/x-vertex" id="fragmentShader">
+	precision mediump float;	
+	
+    uniform float scale;
+    uniform float blur;
+	varying vec2 vUv;
+
+	void main() {
+        vec3 blue = vec3(0.1, 0.1, 1);
+        vec3 yellow = vec3(1, 1, 0.1);
+
+        float u = vUv.x * scale;
+        float v = vUv.y * scale;
+
+        u = abs(fract(u) - 0.5);
+        v = abs(fract(v) - 0.5);
+
+        float rhombusSize = 0.25;
+        float lineWidth = 0.01;
+        float rhombusBlur = 1.05;
+        float lineBlur = 1.5;
+
+        float f = u + v;
+        float rhombusFactor = step(rhombusSize, f) * smoothstep(rhombusSize * blur, rhombusSize * rhombusBlur * blur, f);
+
+        float horizontalFactor = step(lineWidth, u) * smoothstep(lineWidth * blur, lineWidth * lineBlur * blur, u);
+        float verticalFactor = step(lineWidth, v) * smoothstep(lineWidth * blur, lineWidth * lineBlur * blur, v);
+
+        float finalFactor = rhombusFactor * horizontalFactor * verticalFactor;
+        vec3 finalColor = mix(blue, yellow, finalFactor);
+
+        gl_FragColor = vec4(finalColor, 1.0);
+	}
+	</script>
+
+<script type="text/javascript" id="mainCode">
+
+    window.addEventListener('load', function () {
+
+        const container = document.getElementById("container");
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 10000);
+        camera.position.z = 100;
+        camera.target = new THREE.Vector3(0, 0, 0);
+
+        scene.add(camera);
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                scale: { type: 'f' },
+                blur: { type: 'f' }
+            },
+            vertexShader: document.getElementById('vertexShader').textContent,
+            fragmentShader: document.getElementById('fragmentShader').textContent
+        });
+
+        const geo = new THREE.PlaneGeometry(50, 50, 32, 32, 32);
+        const mesh = new THREE.Mesh(geo, material);
+        scene.add(mesh);
+ 
+        const controls = new function () {
+            this.scale = 2.0;
+            this.blur = 0.0;
+        }
+        const gui = new dat.GUI();
+        gui.add(controls, 'scale', 1.0, 10.0).step(1).name("Scale");
+        gui.add(controls, 'blur', 0.0, 1.0).name("Blur");
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        container.appendChild(renderer.domElement);
+        const trackball = new THREE.TrackballControls(camera, renderer.domElement);
+        render();
+
+        function render() {
+            material.uniforms.scale.value = controls.scale;
+            material.uniforms.blur.value = controls.blur;
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(render);
+            trackball.update();
+        }
+    });
+
+</script>
+
+</html>
